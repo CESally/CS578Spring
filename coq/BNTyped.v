@@ -163,3 +163,14 @@ Proof with eauto with bntDB.
   - inversion 1; subst...
 Qed.
 
+
+Theorem subject_expansion_CE : ~ forall t' T
+    (t'htT : t' ;; T) t
+    (Ex: t --> t'),
+  t ;; T.
+Proof.
+  intros X. 
+  specialize (X (true) Bool ttrue
+  (ITE true true O) (eiftrue _ _)
+  ). inv X. inv t3t.
+Qed.

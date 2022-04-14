@@ -25,6 +25,29 @@ Inductive val : tm -> Prop :=
 #[export] Hint Resolve zeroisnval succisnval
 tisval fisval nvsareval : bnDB.
 
+(* Tolmach *)
+Lemma nval_dec : forall tm, {nval tm} + {~ nval tm}.
+Proof. (* Tolmach *)
+  intros.
+  induction tm0; try (right; intro H; inv H; fail).  
+  - left; constructor.
+  - destruct IHtm0. 
+    + left; constructor; auto.
+    + right.  intro. apply n. inv H.  auto.
+Qed.
+
+Lemma val_dec : forall t, {val t} + {~ val t}.
+Proof with auto with bnDB.
+  induction t; try solve
+  [ left; auto with bnDB
+  | right; intros X; inv X; inv H ].
+  - destruct IHt as [V|V];
+    [ | right; intros X; inv X; inv H; apply V]...
+    destruct (nval_dec t) as [N|N];
+    [ left
+    | right; intros X; inv X; inv H]...
+Qed.
+
 Inductive step : tm -> tm -> Prop :=
   | eiftrue : forall t2 t3,
       step (if true then t2 else t3) t2
@@ -203,24 +226,6 @@ Proof with eauto with bnDB; bntriv.
   - rewrite (step_deterministic _ _ _ H H0) in *.
     rewrite IHExu...
 Qed.
-
-(* Lemma if_aaa : forall  t t2 t3 v,
-    val v ->
-    (if t then t2 else t3) -->* v ->
-  t -->* true /\ t2 -->* v \/
-  t -->* false /\ t3 -->* v.
-Proof with eauto with bnDB; bntriv.
-  inversion 2; subst...
-  revert dependent t0.
-  induction H0; intros.
-  - exfalso. edestruct val__nf...
-  - inv H1.
-    + specialize (IHstepstar H).
-  
-   edestruct IHstepstar...
-
-Admitted. *)
-
 
 
 Lemma step_leap__leap : forall t t' v
@@ -432,48 +437,6 @@ Proof with eauto with bnDB; bntriv.
 Qed.
 
 
-Goal forall n, exists t,
-  normal_form t /\ size t = Datatypes.S n.
-Proof with eauto with bnDB.
-  assert (sz1: exists t : tm, normal_form t /\ size t = 2). {
-    exists (S O); split...
-      do 2 intro. inv H. inv IH.
-  }
-  assert (sz1more: forall t, normal_form t ->
-      exists t', normal_form t' /\ size t' = 1 + (size t)). {
-    intros. exists (S t); split...
-    do 2 intro. inv H0. eapply H...
-  }
-  induction n as [|n IH].
-  - exists O; split...
-    do 2 intro. inv H.
-  - destruct IH as (t&NFt&szt), t;
-    simpl in *; rewrite <- szt;
-    try solve [destruct (sz1more _ NFt) as (?&?&?); exists x; split; auto]...
-Qed.
-
-Lemma step_shrink : forall t t',
-  t --> t' -> size t' <= size t.
-Proof with try lia.
-  induction 1; simpl...
-Qed.
-
-Lemma stepstar_shrink : forall t t',
-  t -->* t' -> size t' <= size t.
-Proof with try lia.
-  induction 1 as [|? ? ? ? ? IH]; subst...
-  apply step_shrink in H...
-Qed.
-
-
-(* 3.5.12 *)
-(* Lemma normalizing : forall t, exists t',
-  normal_form t' /\ t -->* t'.
-Proof.
-
-Qed. *)
-
-
 (* 3.5.12 *)
 Lemma step_terminates : forall t, exists t',
   normal_form t' /\ t -->* t'.
@@ -550,4 +513,167 @@ Proof with eauto with bnDB; bntriv.
       intros ?; inversion 1; subst.
       3:{ eapply NFnf... }
       all: destruct H0...
+Qed.
+
+(* Tolmach *)
+(* Lemma A.8 *) 
+Lemma if_v : forall t1 t2 t3 v
+    (valv: val v),
+    (if t1 then t2 else t3) -->* v  ->
+    (t1 -->* true /\ t2 -->* v)
+    \/ (t1 -->* false /\ t3 -->* v). 
+Proof.
+  intros t1 t2 t3 v valv. 
+  remember (if t1 then t2 else t3) as t. 
+  intro.
+  generalize dependent t1. 
+  induction H; intros. 
+  - rewrite Heqt in valv. inv valv. inv H. 
+  - rewrite Heqt in H.  inv H. 
+    + left. split. constructor. auto.
+    + right. split. constructor.  auto.
+    + destruct (IHstepstar valv t' eq_refl) as [[P1 P2]| [P1 P2]]. 
+      * left. split; auto.
+        econstructor; eauto.
+      * right. split; auto.
+        econstructor; eauto.
+Qed.
+
+(* Tolmach *)
+Lemma S_v: forall t v
+          (valv: val v),
+    (S t) -->* v ->
+    exists nv, nval nv /\ t -->* nv /\ v = S nv. 
+Proof.
+  intros t v valv. 
+  remember (S t) as t0. 
+  intros. 
+  generalize dependent t.
+  induction H; intros. 
+  - rewrite Heqt0 in valv. inv valv. inv H. 
+    exists t0. split; auto. split. constructor. auto.
+  - rewrite Heqt0 in H.  inv H. 
+    destruct (IHstepstar valv t' eq_refl) as [nv [P1 [P2 P3]]].
+    exists nv; intuition auto.
+    econstructor; eauto.
+Qed. 
+
+(* Tolmach *)
+Lemma P_v: forall t v
+          (valv: val v),                   
+    (P t) -->* v ->
+    exists nv, nval nv /\ t -->* nv /\ ((nv = O /\ v = O) \/ S v = nv).
+Proof.
+  intros t v valv. 
+  remember (P t) as t0. 
+  intros.
+  generalize dependent t. 
+  induction H; intros. 
+  - rewrite Heqt0 in valv.  inv valv. inv H. 
+  - rewrite Heqt0 in H. inv H. 
+    + exists O. split.  constructor.  split.  constructor. left.  split. auto.
+      inv H0. auto. inv H. 
+    + exists (S t2). split. constructor; auto. split. constructor. right.
+      inv H0. auto. exfalso. eapply val__nf.  apply nvsareval; eauto. eauto.
+    + destruct (IHstepstar valv t' eq_refl) as [nv [P1 [P2 P3]]]. 
+      exists nv. split.  auto. split. econstructor; eauto.  auto.
+Qed.
+
+(* Tolmach *)
+Lemma IZ_v: forall t v
+            (valv: val v),
+    (IZ t) -->* v ->
+    exists nv, nval nv /\ t -->* nv /\ ((nv = O /\ v = true) \/ (exists nv', nv = S nv' /\ v = false)). 
+Proof.
+  intros t v valv. 
+  remember (IZ t) as t0.
+  intros.
+  generalize dependent t. 
+  induction H; intros. 
+  - rewrite Heqt0 in valv. inv valv. inv H. 
+  - rewrite Heqt0 in H. inv H. 
+    + exists O.  split.  constructor. split. constructor.  left.  split.  auto.
+      inv H0.  auto.  inv H. 
+    + exists (S n).  split.  constructor; auto.
+      split. constructor.
+      right. exists n.  split.  auto.
+      inv H0. auto. inv H. 
+    + destruct (IHstepstar valv t' eq_refl) as [nv [P1 [P2 P3]]].
+      exists nv.  split. auto. split. econstructor; eauto. auto.
+Qed.
+
+
+
+
+
+
+
+
+
+
+
+Lemma nfs_of_all_sizes : forall n, exists t,
+  normal_form t /\ size t = Datatypes.S n.
+Proof with eauto with bnDB.
+  assert (sz1: exists t : tm, normal_form t /\ size t = 2). {
+    exists (S O); split...
+      do 2 intro. inv H. inv IH.
+  }
+  assert (sz1more: forall t, normal_form t ->
+      exists t', normal_form t' /\ size t' = 1 + (size t)). {
+    intros. exists (S t); split...
+    do 2 intro. inv H0. eapply H...
+  }
+  induction n as [|n IH].
+  - exists O; split...
+    do 2 intro. inv H.
+  - destruct IH as (t&NFt&szt), t;
+    simpl in *; rewrite <- szt;
+    try solve [destruct (sz1more _ NFt) as (?&?&?); exists x; split; auto]...
+Qed.
+
+(* 3.5.12 *)
+(* Lemma normalizing : forall t, exists t',
+  normal_form t' /\ t -->* t'.
+Proof.
+
+Qed. *)
+
+Lemma step_shrink : forall t t',
+  t --> t' -> size t' < size t.
+Proof with try lia.
+  induction 1; simpl...
+Qed.
+
+Lemma stepstar_shrink : forall t t',
+  t -->* t' -> size t' <= size t.
+Proof with try lia.
+  induction 1 as [|? ? ? ? ? IH]; subst...
+  apply step_shrink in H...
+Qed.
+
+
+
+
+
+
+(* Tolmach *)
+Fixpoint size_tol t : nat :=
+  match t with
+  | true => 1
+  | false => 1
+  | ITE t1 t2 t3 => 1 + size t1 + size t2 + size t3 
+  | O => 1
+  | S t => 1 + size t 
+  | P t => 1 + size t 
+  | IZ t => 1 + size t
+  end.
+
+(* Tolmach *)
+Lemma step_decreases_size :
+  forall t t',
+    t --> t' ->
+    size t' < size t. 
+Proof.
+  induction 1; simpl; lia.
 Qed.

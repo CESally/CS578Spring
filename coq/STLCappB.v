@@ -548,8 +548,8 @@ Qed. *)
 
 
 Theorem preservation : forall t t' T,
-  empty |- t \in T  ->
-  t --> t'  ->
+    empty |- t \in T  ->
+    t --> t'  ->
   empty |- t' \in T.
 Proof with eauto.
   remember empty as G.

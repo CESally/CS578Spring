@@ -552,29 +552,28 @@ Theorem preservation : forall t t' T,
   t --> t'  ->
   empty |- t' \in T.
 Proof with eauto.
+  remember empty as G.
   intros * ?; revert t'. induction H; intros;
   try solve [inv H| inv H0|inv H2;eauto]; niceIH.
+  inv HeqG. specialize (IH2 eq_refl).
+  specialize (IH1 eq_refl).
 
   inv H1; try solve [econstructor;eauto].
-  inv H. eapply substitution_preserves_typing in IH.
-  eexact IH.
+  inv H. eapply substitution_preserves_typing...
+Qed.
 
 
-    + admit.
-      (* inv H.
-      eapply substitution_preserves_typing... *)
-    + econstructor...
-    + econstructor...
-  - inv H2...
+Theorem preservation_strong : forall t t' T G,
+    G |- t \in T  ->
+    t --> t'  ->
+  G |- t' \in T.
+Proof with eauto.
+  intros * ?; revert t'. induction H; intros;
+  try solve [inv H| inv H0|inv H2;eauto]; niceIH.
+  
 
-  inv H0.
-  -
-
-
-
-
-
-
+  inv H1; try solve [econstructor;eauto].
+  inv H. eapply substitution_preserves_typing...
 Qed.
 
 

@@ -169,6 +169,17 @@ Proof with auto.
   | right ]...  
 Qed.
 
+Remark in_classL3 :
+  forall v, (nval v) -> ~ exists t,  v --> t.
+Proof.
+  (* intros ** [t ?].
+  apply (val__nf v (nvsareval _ H) t H0). *)
+
+  induction 1 as [|? ? IH]; intros [x ?];
+  [ inv H
+  | inv H0; apply IH; eauto].
+Qed.
+
 Corollary val__not_stuck : forall t, val t -> ~ stuck t.
 Proof ltac:(intros ** []; auto).
 

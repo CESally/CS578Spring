@@ -257,34 +257,6 @@ Notation "'true'"  := tm_true (in custom stlc at level 0).
 Notation "'false'"  := false (at level 1).
 Notation "'false'"  := tm_false (in custom stlc at level 0).
 
-(** Now we need some notation magic to set up the concrete syntax, as
-    we did in the [Imp] chapter... *)
-
-(* Definition x : string := "x".
-Definition y : string := "y".
-Definition z : string := "z".
-Hint Unfold x : core.
-Hint Unfold y : core.
-Hint Unfold z : core. *)
-
-(** Some examples... *)
-
-(* Notation idB :=
-  <{\x:Bool, x}>.
-
-Notation idBB :=
-  <{\x:Bool->Bool, x}>.
-
-Notation idBBBB :=
-  <{\x:((Bool->Bool)->(Bool->Bool)), x}>.
-
-Notation k := <{\x:Bool, \y:Bool, x}>.
-
-Notation notB := <{\x:Bool, if x then false else true}>. *)
-
-(** (We write these as [Notation]s rather than [Definition]s to make
-    things easier for [auto].) *)
-
 (* ################################################################# *)
 (** * Operational Semantics *)
 
@@ -299,12 +271,9 @@ Notation notB := <{\x:Bool, if x then false else true}>. *)
 
 
 Inductive value : tm -> Prop :=
-  | v_abs : forall x T2 t1,
-      value <{\x:T2, t1}>
-  | v_true :
-      value <{true}>
-  | v_false :
-      value <{false}>.
+  | v_abs   : forall x T2 t1, value <{\x:T2, t1}>
+  | v_true  : value <{true}>
+  | v_false : value <{false}>.
 
 Hint Constructors value : core.
 
@@ -312,18 +281,13 @@ Reserved Notation "'[' x ':=' s ']' t" (in custom stlc at level 20, x constr).
 
 Fixpoint subst (x : string) (s : tm) (t : tm) : tm :=
   match t with
-  | tm_var y =>
-      if eqb_string x y then s else t
-  | <{\y:T, t1}> =>
-      if eqb_string x y then t else <{\y:T, [x:=s] t1}>
-  | <{t1 t2}> =>
-      <{([x:=s] t1) ([x:=s] t2)}>
-  | <{true}> =>
-      <{true}>
-  | <{false}> =>
-      <{false}>
-  | <{if t1 then t2 else t3}> =>
-      <{if ([x:=s] t1) then ([x:=s] t2) else ([x:=s] t3)}>
+  | tm_var y                  => if eqb_string x y then s else t
+  | <{\y:T, t1}>              => if eqb_string x y
+                                 then t else <{\y:T, [x:=s] t1}>
+  | <{t1 t2}>                 => <{([x:=s] t1) ([x:=s] t2)}>
+  | <{true}>                  => <{true}>
+  | <{false}>                 => <{false}>
+  | <{if t1 then t2 else t3}> => <{if ([x:=s] t1) then ([x:=s] t2) else ([x:=s] t3)}>
   end
 
 where "'[' x ':=' s ']' t" := (subst x s t) (in custom stlc).
@@ -516,6 +480,22 @@ Proof with eauto.
     + eapply IHt... rewrite update_permute...
 Qed.
 
+Lemma substitution_of_open_tm_preserves_typing :
+    forall G x U t v T,
+    x |-> U ; G |- t \in T ->
+    G |- v \in U ->
+  G |- [x:=v]t \in T.
+Proof with eauto.
+  intros *; revert G x U v T.
+  induction t; intros **; simpl; inv H...
+  - destruct (eqb_stringP x s) as [<-|].
+    + rewrite update_eq in IH.
+      injection IH as ->...
+    + econstructor. rewrite update_neq in IH...
+  - destruct (eqb_stringP x s) as [<-|]; econstructor.
+    + rewrite update_shadow in IH...
+    + eapply IHt... rewrite update_permute... admit.
+Admitted.
 
 Ltac niceIH :=
   try rename IHhas_type into IH;
@@ -569,11 +549,10 @@ Theorem preservation_strong : forall t t' T G,
   G |- t' \in T.
 Proof with eauto.
   intros * ?; revert t'. induction H; intros;
-  try solve [inv H| inv H0|inv H2;eauto]; niceIH.
-  
+  try solve [inv H| inv H0|inv H2;eauto]; niceIH.  
 
   inv H1; try solve [econstructor;eauto].
-  inv H. eapply substitution_preserves_typing...
+  inv H. eapply substitution_of_open_tm_preserves_typing...
 Qed.
 
 

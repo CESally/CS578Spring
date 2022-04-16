@@ -279,7 +279,16 @@ Hint Constructors value : core.
 
 Reserved Notation "'[' x ':=' s ']' t" (in custom stlc at level 20, x constr).
 
-Fixpoint subst (x : string) (s : tm) (t : tm) : tm :=
+(* This is not capture avoiding!
+
+      (x := z) λz.x ==> λz.z
+
+   [TAPL]
+   we've turned the constant function λz.x into the identity function!
+   Again, this occurred only because we happened to choose z as the
+   name of the bound variable in the constant function, so something
+   is clearly still wrong. *)
+(* Fixpoint subst (x : string) (s : tm) (t : tm) : tm :=
   match t with
   | tm_var y                  => if eqb_string x y then s else t
   | <{\y:T, t1}>              => if eqb_string x y
@@ -290,7 +299,33 @@ Fixpoint subst (x : string) (s : tm) (t : tm) : tm :=
   | <{if t1 then t2 else t3}> => <{if ([x:=s] t1) then ([x:=s] t2) else ([x:=s] t3)}>
   end
 
-where "'[' x ':=' s ']' t" := (subst x s t) (in custom stlc).
+where "'[' x ':=' s ']' t" := (subst x s t) (in custom stlc). *)
+
+Inductive appears_free_in (x : string) : tm -> Prop :=
+  | afi_var : appears_free_in x <{x}>
+  | afi_app1 : forall t1 t2,
+      appears_free_in x t1 ->
+      appears_free_in x <{t1 t2}>
+  | afi_app2 : forall t1 t2,
+      appears_free_in x t2 ->
+      appears_free_in x <{t1 t2}>
+  | afi_abs : forall y T1 t1,
+      y <> x ->
+      appears_free_in x t1 ->
+      appears_free_in x <{\y:T1, t1}>
+  | afi_if1 : forall t1 t2 t3,
+      appears_free_in x t1 ->
+      appears_free_in x <{if t1 then t2 else t3}>
+  | afi_if2 : forall t1 t2 t3,
+      appears_free_in x t2 ->
+      appears_free_in x <{if t1 then t2 else t3}>
+  | afi_if3 : forall t1 t2 t3,
+      appears_free_in x t3 ->
+      appears_free_in x <{if t1 then t2 else t3}>.
+Hint Constructors appears_free_in : core.
+
+
+
 
 Reserved Notation "t '-->' t'" (at level 40).
 
@@ -494,7 +529,8 @@ Proof with eauto.
     + econstructor. rewrite update_neq in IH...
   - destruct (eqb_stringP x s) as [<-|]; econstructor.
     + rewrite update_shadow in IH...
-    + eapply IHt... rewrite update_permute... admit.
+    + eapply IHt... rewrite update_permute...
+    admit.
 Admitted.
 
 Ltac niceIH :=
